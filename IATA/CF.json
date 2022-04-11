@@ -1,0 +1,163 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Lambda function that creates csv to parquet ETL",
+    "Resources": {
+        "LambdaFunResources": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "CF-crawler-invoke",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                                "import json",
+                                "import boto3",
+                                "client = boto3.client('glue')",
+                                "def lambda_handler(event, context):",
+                                "    response = client.start_crawler(Name='sales-csv')",
+                                "    print(json.dumps(response))",
+                                "    client1 = boto3.client('lambda')",
+                                "    response1 = client1.invoke(FunctionName = 'glue-invoke')",
+                                "    print(response1)"
+                            ]
+                        ]
+                    }
+                },
+                "Handler": "lambda_function.lambda_handler",
+                "Role": "arn:aws:iam::646949264197:role/service-role/EMR-spark",
+                "Runtime": "python3.7",
+                "Timeout": "20"
+           }
+		},
+	    "LambdaFun1Resources": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "S3-zip-extract",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                               "import json",
+                               "import boto3",
+                               "import zlib",
+                               "import zipfile",
+                               "from io import BytesIO",
+
+
+                               "def lambda_handler(event, context):",
+    
+   
+                               "    s3 = boto3.resource('s3', use_ssl=False)",
+                               "    zip_obj = s3.Object('iata.artha','2m-Sales-Records.zip')",
+    
+   
+                               "    buffer = BytesIO(zip_obj.get()['Body'].read())",
+                               "    print(buffer)",
+                               "    z = zipfile.ZipFile(buffer)",
+                               "    for filename in z.namelist():",
+        
+                               "        file_info = z.getinfo(filename)",
+                               "    s3.meta.client.upload_fileobj(",
+                               "        z.open(filename),",
+                               "        Bucket='iata.artha.target',",
+                               "        Key='sales-files/'+f'{filename}'",
+                               "    )"
+                            ]
+                        ]
+                    }
+                },
+                "Handler": "lambda_function.lambda_handler",
+                "Role": "arn:aws:iam::646949264197:role/service-role/EMR-spark",
+                "Runtime": "python3.7",
+                "Timeout": "20"
+           }
+		},
+	    "LambdaFun2Resources": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "CF-glue-invoke",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                               "import json",
+                               "import boto3",
+
+                               "client = boto3.client('glue')",
+
+                               "def lambda_handler(event, context):",
+    
+    
+                               "    response1 = client.get_crawler_metrics(CrawlerNameList=['sales-csv'])",
+                               "    status = response1['CrawlerMetricsList'][0]['StillEstimating']",
+                               "    print((status))",
+   
+                               "    if status == False:",
+                               "        response = client.start_job_run(JobName = 'csv-to-parquet')",
+                               "    else:",
+                               "        client1 = boto3.client('lambda')",
+                               "        response = client1.invoke(FunctionName = 'glue-invoke-1')"
+                            ]
+                        ]
+                    }
+                },
+                "Handler": "lambda_function.lambda_handler",
+                "Role": "arn:aws:iam::646949264197:role/service-role/EMR-spark",
+                "Runtime": "python3.7",
+                "Timeout": "20"
+           }
+		},
+	    "LambdaFun3Resources": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "CF-glue-invoke-1",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                               "import json",
+                               "import boto3",
+
+                               "client = boto3.client('glue')",
+
+                               "def lambda_handler(event, context):",
+    
+    
+                               "    response1 = client.get_crawler_metrics(CrawlerNameList=['sales-csv'])",
+                               "    status = response1['CrawlerMetricsList'][0]['StillEstimating']",
+                               "    print((status))",
+   
+                               "    if status == False:",
+                               "        response = client.start_job_run(JobName = 'csv-to-parquet')",
+                               "    else:",
+                               "        client1 = boto3.client('lambda')",
+                               "        response = client1.invoke(FunctionName = 'glue-invoke')"
+                            ]
+                        ]
+                    }
+                },
+                "Handler": "lambda_function.lambda_handler",
+                "Role": "arn:aws:iam::646949264197:role/service-role/EMR-spark",
+                "Runtime": "python3.7",
+                "Timeout": "20"
+           }
+		},
+		
+        "S3": {
+		   "Type" : "AWS::S3::Bucket",
+           "Properties" : {
+		        "BucketName": "parquetartha",
+				"AccessControl" : "Private"
+			}
+	   }
+       
+			   
+		   
+        
+   }
+ 
+ }	 
